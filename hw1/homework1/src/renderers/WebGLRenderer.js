@@ -43,6 +43,7 @@ class WebGLRenderer {
 
             // Camera pass
             for (let i = 0; i < this.meshes.length; i++) {
+                //这一步是让显卡决定使用哪个shader program
                 this.gl.useProgram(this.meshes[i].shader.program.glShaderProgram);
                 this.gl.uniform3fv(this.meshes[i].shader.program.uniforms.uLightPos, this.lights[l].entity.lightPos);
                 this.meshes[i].draw(this.camera);
