@@ -46,8 +46,10 @@ struct Intersection {
     /// Pointer to the associated mesh
     const Mesh *mesh;
 
+    /// Barycentric coordinates of the intersection point
     Vector3f bary;
 
+    /// Index of the intersected triangle
     Point3f tri_index;
 
     /// Create an uninitialized intersection record

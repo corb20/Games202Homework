@@ -112,6 +112,7 @@ namespace ProjEnv
                 }
             }
         }
+        //不理解为什么要把dir存起来，完全可以现用现算
         constexpr int SHNum = (SHOrder + 1) * (SHOrder + 1);
         std::vector<Eigen::Array3f> SHCoeffiecents(SHNum);
         for (int i = 0; i < SHNum; i++)
@@ -129,6 +130,16 @@ namespace ProjEnv
                     int index = (y * width + x) * channel;
                     Eigen::Array3f Le(images[i][index + 0], images[i][index + 1],
                                       images[i][index + 2]);
+
+                    float delt_w = CalcArea(x, y, width, height);
+                    for(int l=0;l<SHOrder;l++){
+                        for(int m=-l;m<=l;m++)
+                        {
+                            int idx = sh::GetIndex(l,m);
+                            double shBasic=sh::EvalSH(l,m,dir);
+                            SHCoeffiecents[idx]+=shBasic*Le*delt_w;
+                        }
+                    }
                 }
             }
         }
@@ -206,28 +217,95 @@ public:
             auto shFunc = [&](double phi, double theta) -> double {
                 Eigen::Array3d d = sh::ToVector(phi, theta);
                 const auto wi = Vector3f(d.x(), d.y(), d.z());
+                double H=n.dot(wi);
                 if (m_Type == Type::Unshadowed)
                 {
                     // TODO: here you need to calculate unshadowed transport term of a given direction
                     // TODO: 此处你需要计算给定方向下的unshadowed传输项球谐函数值
-                    return 0;
+                    return H>0?H:0;
                 }
                 else
                 {
                     // TODO: here you need to calculate shadowed transport term of a given direction
                     // TODO: 此处你需要计算给定方向下的shadowed传输项球谐函数值
+                    if(H>0 && !scene->rayIntersect(Ray3f(v,wi))){
+                        return H;
+                    }
                     return 0;
                 }
             };
+            //居然有现成的球谐函数的计算函数（泪目）
             auto shCoeff = sh::ProjectFunction(SHOrder, shFunc, m_SampleCount);
             for (int j = 0; j < shCoeff->size(); j++)
             {
                 m_TransportSHCoeffs.col(i).coeffRef(j) = (*shCoeff)[j];
             }
         }
+        
+        //返回的是一个1列，SHCoeffLength行的矩阵（其实是向量）
+        std::function<Eigen::MatrixXf(const Point3f&,const Vector3f&,int)> IndirCoeffCalculate=[&](const Point3f &pos,const Vector3f& normal,int bounce){
+            Eigen::MatrixXf m_IndirectCoeffs = Eigen::MatrixXf::Zero(SHCoeffLength, 1);
+            if(bounce==0){
+                return m_IndirectCoeffs;
+            }
+            auto SHFunc=[&](double phi, double theta) -> double {
+                Eigen::Array3d d = sh::ToVector(phi, theta);
+                const auto wi = Vector3f(d.x(), d.y(), d.z());
+                double H=normal.dot(wi);
+                Intersection its;
+                float trans=0;
+                //只有击中了才有间接光照
+                if(H>0){
+                    bool isHit=scene->rayIntersect(Ray3f(pos,wi),its);
+                    if(isHit){
+                        return H;
+                    }
+                    //求间接光照，包括相交点的直接光照（已经在m_TransportSHCoeffs中计算过了）和间接光照
+                    Point3f hitPos=its.p;
+                    Point3f idx= its.tri_index;
+                    float alpha=its.bary.x();
+                    float beta=its.bary.y();
+                    float gamma=its.bary.z();
+
+                    //求解法向量
+                    const Vector3f& n1=mesh->getVertexNormals().col(idx.x());
+                    const Vector3f& n2=mesh->getVertexNormals().col(idx.y());
+                    const Vector3f& n3=mesh->getVertexNormals().col(idx.z());
+
+                    Vector3f hitNorm=(n1*alpha+n2*beta+n3*gamma).normalized();
+
+                    //接下来考虑该点贡献的间接光照
+                    Eigen::MatrixXf hitInDirCoeffs=IndirCoeffCalculate(hitPos,hitNorm,bounce-1);
+
+                    //将hitInDirCoeffs转化为vector<float>
+                    std::vector<float> hitInDirCoeffs_vec;
+                    for(int i=0;i<hitInDirCoeffs.rows();i++){
+                        hitInDirCoeffs_vec.push_back(hitInDirCoeffs(i,0));
+                    }
+                    trans+=sh::EvalSHSum(SHOrder,hitInDirCoeffs_vec,-d);
+                    return trans;
+                }
+                return 0;
+            };
+            
+            auto shCoeff = sh::ProjectFunction(SHOrder, SHFunc, m_SampleCount);
+            //将shCoeff转化为Eigen::MatrixXf
+            for (int j = 0; j < shCoeff->size(); j++)
+            {
+                m_IndirectCoeffs.col(0).coeffRef(j) = (*shCoeff)[j];
+            }
+            return m_IndirectCoeffs;
+        };
+
         if (m_Type == Type::Interreflection)
         {
-            // TODO: leave for bonus
+            for (int i = 0; i < mesh->getVertexCount(); i++)
+            {
+                const Point3f &v = mesh->getVertexPositions().col(i);
+                const Normal3f &n = mesh->getVertexNormals().col(i);
+                Eigen::MatrixXf m_IndirectCoeffs=IndirCoeffCalculate(v,n,m_Bounce);
+                m_TransportSHCoeffs.col(i)+=m_IndirectCoeffs;
+            }
         }
 
         // Save in face format
@@ -254,6 +332,8 @@ public:
         std::cout << "Computed SH coeffs"
                   << " to: " << transPath.str() << std::endl;
     }
+
+
 
     Color3f Li(const Scene *scene, Sampler *sampler, const Ray3f &ray) const
     {
