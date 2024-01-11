@@ -255,11 +255,7 @@ public:
                 Intersection its;
                 float trans=0;
                 //只有击中了才有间接光照
-                if(H>0){
-                    bool isHit=scene->rayIntersect(Ray3f(pos,wi),its);
-                    if(isHit){
-                        return H;
-                    }
+                if(H>0 && scene->rayIntersect(Ray3f(pos,wi),its)){
                     //求间接光照，包括相交点的直接光照（已经在m_TransportSHCoeffs中计算过了）和间接光照
                     Point3f hitPos=its.p;
                     Point3f idx= its.tri_index;
@@ -274,18 +270,24 @@ public:
 
                     Vector3f hitNorm=(n1*alpha+n2*beta+n3*gamma).normalized();
 
-                    //接下来考虑该点贡献的间接光照
-                    Eigen::MatrixXf hitInDirCoeffs=IndirCoeffCalculate(hitPos,hitNorm,bounce-1);
+                    //求下一个点的球谐函数
+                    const Eigen::MatrixXf& coeffs1=m_TransportSHCoeffs.col(idx.x());
+                    const Eigen::MatrixXf& coeffs2=m_TransportSHCoeffs.col(idx.y());
+                    const Eigen::MatrixXf& coeffs3=m_TransportSHCoeffs.col(idx.z());
 
+                    //直接光照
+                    Eigen::MatrixXf hitDirCoeffs=coeffs1*alpha+coeffs2*beta+coeffs3*gamma;
+                    //间接光照
+                    Eigen::MatrixXf hitInDirCoeffs=IndirCoeffCalculate(hitPos,hitNorm,bounce-1);
+                    
                     //将hitInDirCoeffs转化为vector<float>
-                    std::vector<float> hitInDirCoeffs_vec;
+                    std::vector<float> hitCoeffs_vec;
                     for(int i=0;i<hitInDirCoeffs.rows();i++){
-                        hitInDirCoeffs_vec.push_back(hitInDirCoeffs(i,0));
+                        hitCoeffs_vec.push_back(hitInDirCoeffs(i,0)+hitDirCoeffs(i,0));
                     }
-                    trans+=sh::EvalSHSum(SHOrder,hitInDirCoeffs_vec,-d);
-                    return trans;
+                    trans+=H * sh::EvalSHSum(SHOrder,hitCoeffs_vec,-d);
                 }
-                return 0;
+                return trans;
             };
             
             auto shCoeff = sh::ProjectFunction(SHOrder, SHFunc, m_SampleCount);
