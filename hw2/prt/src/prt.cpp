@@ -136,7 +136,7 @@ namespace ProjEnv
                         for(int m=-l;m<=l;m++)
                         {
                             int idx = sh::GetIndex(l,m);
-                            double shBasic=sh::EvalSH(l,m,dir);
+                            double shBasic=sh::EvalSH(l,m,Eigen::Vector3d(dir.x(),dir.y(),dir.z()).normalized());
                             SHCoeffiecents[idx]+=shBasic*Le*delt_w;
                         }
                     }
