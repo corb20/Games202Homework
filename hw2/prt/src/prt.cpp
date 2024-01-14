@@ -132,7 +132,7 @@ namespace ProjEnv
                                       images[i][index + 2]);
 
                     float delt_w = CalcArea(x, y, width, height);
-                    for(int l=0;l<SHOrder;l++){
+                    for(int l=0;l<SHOrder+1;l++){
                         for(int m=-l;m<=l;m++)
                         {
                             int idx = sh::GetIndex(l,m);
