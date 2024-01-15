@@ -42,7 +42,8 @@ class MeshRender {
 		gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, this.#indicesBuffer);
 		gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(mesh.indices), gl.STATIC_DRAW);
 		gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, null);
-
+		
+		//extraAttribs中存的是属性的名字，是一个字符串列表
 		this.material.setMeshAttribs(extraAttribs);
 		this.shader = this.material.compile(gl);
 	}
@@ -105,6 +106,7 @@ class MeshRender {
 				this.shader.program.attribs[this.mesh.texcoordsName]);
 		}
 
+		//webgl如何绘制要看ELEMENT_ARRAY_BUFFER绑定的内容（这是使用drawElements的情况）
 		gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, this.#indicesBuffer);
 
 
