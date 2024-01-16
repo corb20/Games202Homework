@@ -122,7 +122,8 @@ vec3 GetGBufferDiffuse(vec2 uv) {
  *
  */
 vec3 EvalDiffuse(vec3 wi, vec3 wo, vec2 uv) {
-  vec3 L = vec3(0.0);
+  vec3 diffuse = GetGBufferDiffuse(uv);
+  vec3 L= diffuse * INV_PI;
   return L;
 }
 
@@ -132,12 +133,47 @@ vec3 EvalDiffuse(vec3 wi, vec3 wo, vec2 uv) {
  *
  */
 vec3 EvalDirectionalLight(vec2 uv) {
-  vec3 Le = vec3(0.0);
+  vec3 Le = GetGBufferuShadow(uv) * uLightRadiance;
   return Le;
 }
 
-bool RayMarch(vec3 ori, vec3 dir, out vec3 hitPos) {
+bool RayMarch(vec3 ori, vec3 dir, out vec3 hitPos,out int hitDist) {
+  //shader中的循环的上限值必须使用常量
+  const int MaxCount=150;
+  float step=0.05;
+  vec3 stepDir=step*normalize(dir);
+
+  vec3 curPos=ori;
+
+  for(int i=0;i<MaxCount;i++){
+    vec2 uv=GetScreenCoordinate(curPos);
+    float depth=GetGBufferDepth(uv);
+    float curDepth=GetDepth(curPos);
+    if(curDepth>depth){
+      hitPos=curPos;
+      hitDist=i;
+      return true;
+    }
+    curPos+=stepDir;
+  }
   return false;
+}
+
+//计算反射光（为了防止太油腻，将反射光的强度降低）
+vec3 EvalReflect(vec3 wi, vec3 wo, vec2 uv) {
+  //wi是光源方向，wo是视线方向
+  vec3 normal = GetGBufferNormalWorld(uv);
+  vec3 reflectDir = normalize(reflect(-wo, normal));
+  vec3 hitPos;
+  int hitDist;
+  if(RayMarch(vPosWorld.xyz,reflectDir,hitPos,hitDist)){
+    vec2 hituv=GetScreenCoordinate(hitPos);
+    vec3 L=EvalDiffuse(wi,reflectDir,hituv)*EvalDirectionalLight(hituv);
+    hitDist+=1;
+    L/=float(hitDist)/1.1;
+    return L;
+  }
+  return vec3(0.0);
 }
 
 #define SAMPLE_NUM 1
@@ -145,8 +181,28 @@ bool RayMarch(vec3 ori, vec3 dir, out vec3 hitPos) {
 void main() {
   float s = InitRand(gl_FragCoord.xy);
 
+  vec2 uv= GetScreenCoordinate(vPosWorld.xyz);
+  vec3 wi=normalize(uLightDir);
+  vec3 wo = normalize(uCameraPos - vPosWorld.xyz);
   vec3 L = vec3(0.0);
-  L = GetGBufferDiffuse(GetScreenCoordinate(vPosWorld.xyz));
+  //L = GetGBufferDiffuse(GetScreenCoordinate(vPosWorld.xyz));
+  L= EvalDiffuse(wi, wo, uv)* EvalDirectionalLight(uv);
+  //L+=EvalReflect(wi,wo,uv);
+  vec3 indirL=vec3(0.0);
+  //计算间接光照，使用蒙特卡洛积分
+  for(int i=0;i<SAMPLE_NUM;i++){
+    float pdf;
+    vec3 dir=SampleHemisphereCos(s,pdf);
+    dir=normalize(dir);
+    vec3 hitPos;
+    int dist;
+    if(RayMarch(vPosWorld.xyz,dir,hitPos,dist)){
+      vec2 hituv=GetScreenCoordinate(hitPos);
+      indirL+=EvalDiffuse(wo,dir,uv)*EvalDiffuse(wi,dir,hituv)*EvalDirectionalLight(hituv)/pdf;
+    }
+  }
+  L+=indirL/float(SAMPLE_NUM);
+
   vec3 color = pow(clamp(L, vec3(0.0), vec3(1.0)), vec3(1.0 / 2.2));
   gl_FragColor = vec4(vec3(color.rgb), 1.0);
 }
