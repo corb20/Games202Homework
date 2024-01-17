@@ -176,7 +176,7 @@ vec3 EvalReflect(vec3 wi, vec3 wo, vec2 uv) {
   return vec3(0.0);
 }
 
-#define SAMPLE_NUM 1
+#define SAMPLE_NUM 8
 
 void main() {
   float s = InitRand(gl_FragCoord.xy);
@@ -193,8 +193,11 @@ void main() {
   for(int i=0;i<SAMPLE_NUM;i++){
     float pdf;
     vec3 dir=SampleHemisphereCos(s,pdf);
-    dir=normalize(dir);
     vec3 hitPos;
+    vec3 b1,b2;
+    vec3 n=GetGBufferNormalWorld(uv);
+    LocalBasis(n,b1,b2);
+    dir=normalize(mat3(b1,b2,n)*dir);
     int dist;
     if(RayMarch(vPosWorld.xyz,dir,hitPos,dist)){
       vec2 hituv=GetScreenCoordinate(hitPos);
