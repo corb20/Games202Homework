@@ -64,25 +64,31 @@ Vec3f getEmu(int x, int y, int alpha, unsigned char *data, float NdotV, float ro
 }
 
 Vec3f IntegrateEmu(Vec3f V, float roughness, float NdotV, Vec3f Ei) {
-    Vec3f Eavg = Vec3f(0.0f);
-    const int sample_count = 1024;
-    Vec3f N = Vec3f(0.0, 0.0, 1.0);
+    // Vec3f Eavg = Vec3f(0.0f);
+    // const int sample_count = 1024;
+    // Vec3f N = Vec3f(0.0, 0.0, 1.0);
 
-    samplePoints sampleList = squareToCosineHemisphere(sample_count);
-    for (int i = 0; i < sample_count; i++) {
-        Vec3f L = sampleList.directions[i];
-        Vec3f H = normalize(V + L);
+    // samplePoints sampleList = squareToCosineHemisphere(sample_count);
+    // for (int i = 0; i < sample_count; i++) {
+    //     Vec3f L = sampleList.directions[i];
+    //     Vec3f H = normalize(V + L);
 
-        float NoL = std::max(L.z, 0.0f);
-        float NoH = std::max(H.z, 0.0f);
-        float VoH = std::max(dot(V, H), 0.0f);
-        float NoV = std::max(dot(N, V), 0.0f);
+    //     if(L.z<0){
+    //         std::cout<<"L.z<0"<<std::endl;
+    //     }
+    //     float NoL = std::max(L.z, 0.0f);//cosTheta
+    //     //行代表roughness，列代表NoL
+    //     int row=static_cast<int>(floor(roughness*resolution));
+    //     int col=static_cast<int>(floor(NoL*resolution));
 
-        // TODO: To calculate Eavg here
-        
-    }
-
-    return Eavg / sample_count;
+    //     Vec3f realEi=getEmu(resolution-row,col,0,data,NoL,roughness);
+    //     float pdf=sampleList.PDFs[i];
+    //     // TODO: To calculate Eavg here
+    //     float miu=std::sqrt(1-NoL*NoL);
+    //     Eavg+=realEi*miu*2.0f;
+    // }
+    // return Eavg / sample_count;
+    return Ei*NdotV*2;
 }
 
 
@@ -112,6 +118,7 @@ int main() {
                 Vec3f V = Vec3f(std::sqrt(1.f - NdotV * NdotV), 0.f, NdotV);
 
                 Vec3f Ei = getEmu((resolution - 1 - i), j, 0, Edata, NdotV, roughness);
+                //c此处相当于是在均匀采样了
                 Eavg += IntegrateEmu(V, roughness, NdotV, Ei) * step;
                 setRGB(i, j, 0.0, data);
 			}
@@ -125,7 +132,7 @@ int main() {
 		}
 
 		stbi_flip_vertically_on_write(true);
-		stbi_write_png("GGX_Eavg_LUT.png", resolution, resolution, channel, data, 0);
+		stbi_write_png("GGX_Eavg_MC_LUT.png", resolution, resolution, channel, data, 0);
 	}
 	stbi_image_free(Edata);
     return 0;

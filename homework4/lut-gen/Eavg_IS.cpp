@@ -31,31 +31,51 @@ Vec3f ImportanceSampleGGX(Vec2f Xi, Vec3f N, float roughness) {
 
     // TODO: Copy the code from your previous work - Bonus 1
 
-    return Vec3f(1.0f);
+    //TODO: in spherical space - Bonus 1
+    float cosTheta=std::sqrt((1-Xi.x)/(1+(a*a-1)*Xi.x));
+    float sinTheta=std::sqrt(1-cosTheta*cosTheta);
+    float phi=2*PI*Xi.y;
+
+    //TODO: from spherical space to cartesian space - Bonus 1
+    //此时得到的还是相对坐标，需要获得世界坐标
+    Vec3f m=Vec3f(sinTheta*std::cos(phi),sinTheta*std::sin(phi),cosTheta);
+
+    //TODO: tangent coordinates - Bonus 1
+    Vec3f up = abs(N.z) < 0.999 ? Vec3f(0.0, 0.0, 1.0) : Vec3f(1.0, 0.0, 0.0);
+    Vec3f tangent = normalize(cross(up, N));
+    Vec3f bitangent = cross(N, tangent);
+
+    //TODO: transform H to tangent space - Bonus 1
+    //我们是要从基础系变为tbn系，所以此处使用的是正向矩阵
+    //tx bx nx
+    //ty by ny
+    //tz bz nz
+    return Vec3f(tangent*m.x+bitangent*m.y+N*m.z);
 }
 
 
 Vec3f IntegrateEmu(Vec3f V, float roughness, float NdotV, Vec3f Ei) {
-    Vec3f Eavg = Vec3f(0.0f);
-    const int sample_count = 1024;
-    Vec3f N = Vec3f(0.0, 0.0, 1.0);
+    // Vec3f Eavg = Vec3f(0.0f);
+    // const int sample_count = 1024;
+    // Vec3f N = Vec3f(0.0, 0.0, 1.0);
 
-    for (int i = 0; i < sample_count; i++) 
-    {
-        Vec2f Xi = Hammersley(i, sample_count);
-        Vec3f H = ImportanceSampleGGX(Xi, N, roughness);
-        Vec3f L = normalize(H * 2.0f * dot(V, H) - V);
+    // for (int i = 0; i < sample_count; i++) 
+    // {
+    //     Vec2f Xi = Hammersley(i, sample_count);
+    //     Vec3f H = ImportanceSampleGGX(Xi, N, roughness);
+    //     Vec3f L = normalize(H * 2.0f * dot(V, H) - V);
 
-        float NoL = std::max(L.z, 0.0f);
-        float NoH = std::max(H.z, 0.0f);
-        float VoH = std::max(dot(V, H), 0.0f);
-        float NoV = std::max(dot(N, V), 0.0f);
+    //     float NoL = std::max(L.z, 0.0f);
+    //     float NoH = std::max(H.z, 0.0f);
+    //     float VoH = std::max(dot(V, H), 0.0f);
+    //     float NoV = std::max(dot(N, V), 0.0f);
 
-        // TODO: To calculate Eavg here - Bonus 1
+    //     // TODO: To calculate Eavg here - Bonus 1
         
-    }
+    // }
 
-    return Vec3f(1.0);
+    // return Vec3f(1.0);
+    return Ei*NdotV*2;
 }
 
 void setRGB(int x, int y, float alpha, unsigned char *data) {

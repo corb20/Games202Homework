@@ -27,23 +27,37 @@ Vec3f ImportanceSampleGGX(Vec2f Xi, Vec3f N, float roughness) {
     float a = roughness * roughness;
 
     //TODO: in spherical space - Bonus 1
-
+    float cosTheta=std::sqrt((1-Xi.x)/(1+(a*a-1)*Xi.x));
+    float sinTheta=std::sqrt(1-cosTheta*cosTheta);
+    float phi=2*PI*Xi.y;
 
     //TODO: from spherical space to cartesian space - Bonus 1
- 
+    //此时得到的还是相对坐标，需要获得世界坐标
+    Vec3f m=Vec3f(sinTheta*std::cos(phi),sinTheta*std::sin(phi),cosTheta);
 
     //TODO: tangent coordinates - Bonus 1
-
+    Vec3f up = abs(N.z) < 0.999 ? Vec3f(0.0, 0.0, 1.0) : Vec3f(1.0, 0.0, 0.0);
+    Vec3f tangent = normalize(cross(up, N));
+    Vec3f bitangent = cross(N, tangent);
 
     //TODO: transform H to tangent space - Bonus 1
-    
-    return Vec3f(1.0f);
+    //我们是要从基础系变为tbn系，所以此处使用的是正向矩阵
+    //tx bx nx
+    //ty by ny
+    //tz bz nz
+    return Vec3f(tangent*m.x+bitangent*m.y+N*m.z);
 }
 
 float GeometrySchlickGGX(float NdotV, float roughness) {
     // TODO: To calculate Schlick G1 here - Bonus 1
-    
-    return 1.0f;
+    float a = roughness;
+    float k = (a * a) / 2.0f;
+
+    float nom = NdotV;
+    float denom = NdotV * (1.0f - k) + k;
+
+    return nom / denom;
+    //return 1.0f;
 }
 
 float GeometrySmith(float roughness, float NoV, float NoL) {
@@ -57,6 +71,7 @@ Vec3f IntegrateBRDF(Vec3f V, float roughness) {
 
     const int sample_count = 1024;
     Vec3f N = Vec3f(0.0, 0.0, 1.0);
+    float sum = 0.0;
     for (int i = 0; i < sample_count; i++) {
         Vec2f Xi = Hammersley(i, sample_count);
         Vec3f H = ImportanceSampleGGX(Xi, N, roughness);
@@ -68,13 +83,14 @@ Vec3f IntegrateBRDF(Vec3f V, float roughness) {
         float NoV = std::max(dot(N, V), 0.0f);
         
         // TODO: To calculate (fr * ni) / p_o here - Bonus 1
-
-
+        float G=GeometrySmith(roughness,NoV,NoL);
+        float weight=G*VoH/(NoV*NoH);
+    
         // Split Sum - Bonus 2
-        
+        sum+=weight;
     }
-
-    return Vec3f(1.0f);
+    sum/=sample_count;
+    return Vec3f(sum);
 }
 
 int main() {
