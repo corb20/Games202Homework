@@ -69,6 +69,18 @@ struct Vec3 {
         return *this;
     }
 
+    Vec3 &normalize() {
+        double norm = std::sqrt(x * x + y * y + z * z);
+        x /= norm;
+        y /= norm;
+        z /= norm;
+        return *this;
+    }
+
+    Type norm() const {
+        return std::sqrt(x * x + y * y + z * z);
+    }
+
     Type x, y, z;
 };
 

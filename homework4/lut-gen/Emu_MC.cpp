@@ -73,6 +73,15 @@ float GeometrySmith(float roughness, float NoV, float NoL) {
     return ggx1 * ggx2;
 }
 
+Vec3f CalBRDF(Vec3f wi,Vec3f wo,Vec3f n,float roughness){
+    Vec3f h = (wi + wo).normalize();
+    Vec3f F=Vec3f(1.0,1.0,1.0);
+    float D=DistributionGGX(n,h,roughness);
+    float G=GeometrySmith(roughness,dot(n,wi),dot(n,wo));
+
+    return F*((D*G)/(4*dot(n,wi)*dot(n,wo)));
+}
+
 Vec3f IntegrateBRDF(Vec3f V, float roughness, float NdotV) {
     float A = 0.0;
     float B = 0.0;
@@ -82,8 +91,14 @@ Vec3f IntegrateBRDF(Vec3f V, float roughness, float NdotV) {
     
     samplePoints sampleList = squareToCosineHemisphere(sample_count);
     for (int i = 0; i < sample_count; i++) {
-      // TODO: To calculate (fr * ni) / p_o here
-      
+        // TODO: To calculate (fr * ni) / p_o here
+        Vec3f wi=sampleList.directions[i];
+        float pdf=sampleList.PDFs[i];
+
+        Vec3f fr = CalBRDF(wi,V,N,roughness)*dot(wi,N);
+        A+=fr.x/pdf;
+        B+=fr.y/pdf;
+        C+=fr.z/pdf;
     }
 
     return {A / sample_count, B / sample_count, C / sample_count};

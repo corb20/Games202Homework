@@ -183,6 +183,17 @@ float PCSS(sampler2D shadowMap, vec4 coords){
 
 }
 
+float stepLight(float color){
+  if(color < 0.5)
+    return 0.1;
+  else if(color < 0.8)
+    return 0.6;
+  else if(color < 0.95)
+    return 0.9;
+  else
+    return 1.0;
+}
+
 vec3 blinnPhong() {
   vec3 color = texture2D(uSampler, vTextureCoord).rgb;
   color = pow(color, vec3(2.2));
@@ -191,20 +202,29 @@ vec3 blinnPhong() {
 
   vec3 lightDir = normalize(uLightPos);
   vec3 normal = normalize(vNormal);
+
   float diff = max(dot(lightDir, normal), 0.0);
+
+  //diff=stepLight(diff);
   vec3 light_atten_coff =
       uLightIntensity / pow(length(uLightPos - vFragPos), 2.0);
   vec3 diffuse = diff * light_atten_coff * color;
 
   vec3 viewDir = normalize(uCameraPos - vFragPos);
   vec3 halfDir = normalize((lightDir + viewDir));
-  float spec = pow(max(dot(halfDir, normal), 0.0), 32.0);
+
+  float dotLight=dot(halfDir, normal);
+  float stepLight=stepLight(dotLight);
+
+  float spec = pow(max(stepLight, 0.0), 32.0);
   vec3 specular = uKs * light_atten_coff * spec;
 
   vec3 radiance = (ambient + diffuse + specular);
   vec3 phongColor = pow(radiance, vec3(1.0 / 2.2));
   return phongColor;
 }
+
+
 
 void main(void) {
 
@@ -219,7 +239,8 @@ void main(void) {
   visibility = PCSS(uShadowMap, vec4(shadowCoord, 1.0));
 
   vec3 phongColor = blinnPhong();
+  vec3 pvColor=phongColor * visibility;
+  gl_FragColor = vec4(pvColor, 1.0);
 
-  gl_FragColor = vec4(phongColor * visibility, 1.0);
   //gl_FragColor = vec4(phongColor, 1.0);
 }
