@@ -133,6 +133,7 @@ int main() {
 
             Eavg = Vec3f(0.0);
 		}
+        //这一行控制写入图片翻转过来,所以是从左下角开始(0,0)的
 		stbi_flip_vertically_on_write(true);
 		stbi_write_png("GGX_Eavg_LUT.png", resolution, resolution, channel, data, 0);
 	}

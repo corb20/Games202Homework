@@ -23,27 +23,43 @@ const float PI = 3.14159265359;
 float DistributionGGX(vec3 N, vec3 H, float roughness)
 {
    // TODO: To calculate GGX NDF here
-    
+    float a = roughness * roughness;
+    float a2 = a * a;
+    float NdotH = max(dot(N, H), 0.0);
+
+    float nom   = a2;
+    float denom = (NdotH * NdotH * (a2 - 1.0) + 1.0);
+    denom = PI * denom * denom;
+
+    return nom / max(denom,0.0001);
 }
 
 float GeometrySchlickGGX(float NdotV, float roughness)
 {
     // TODO: To calculate Schlick G1 here
-    
-    return 1.0;
+    float a=roughness;
+    float k = (a * a) / 2.0;
+
+    float nom   = NdotV;
+    float denom = NdotV * (1.0 - k) + k;
+
+    return nom / denom;
 }
 
 float GeometrySmith(vec3 N, vec3 V, vec3 L, float roughness)
 {
     // TODO: To calculate Smith G here
+    float ggx2 = GeometrySchlickGGX(dot(N, V), roughness);
+    float ggx1 = GeometrySchlickGGX(dot(N, L), roughness);
 
-    return 1.0;
+    return ggx1 * ggx2;
 }
 
 vec3 fresnelSchlick(vec3 F0, vec3 V, vec3 H)
 {
     // TODO: To calculate Schlick F here
-    return vec3(1.0);
+    float VoH = max(dot(V, H), 0.0);
+    return F0 + (1.0 - F0) * pow(1.0 - VoH, 5.0);
 }
 
 
@@ -59,6 +75,7 @@ vec3 MultiScatterBRDF(float NdotL, float NdotV)
 {
   vec3 albedo = pow(texture2D(uAlbedoMap, vTextureCoord).rgb, vec3(2.2));
 
+  //texture2D读取uv默认左下角是(0,0)，右上角是(1,1)
   vec3 E_o = texture2D(uBRDFLut, vec2(NdotL, uRoughness)).xyz;
   vec3 E_i = texture2D(uBRDFLut, vec2(NdotV, uRoughness)).xyz;
 
@@ -68,9 +85,11 @@ vec3 MultiScatterBRDF(float NdotL, float NdotV)
   vec3 F_avg = AverageFresnel(albedo, edgetint);
   
   // TODO: To calculate fms and missing energy here
+  vec3 f_ms=(1.0-E_o)*(1.0-E_i)/(PI*(1.0-E_avg));
+  
+  vec3 f_add=F_avg*E_avg/(1.0-F_avg*(1.0-E_avg));
 
-
-  return vec3(1.0);
+  return f_ms*f_add;
   
 }
 

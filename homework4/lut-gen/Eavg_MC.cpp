@@ -93,6 +93,7 @@ Vec3f IntegrateEmu(Vec3f V, float roughness, float NdotV, Vec3f Ei) {
 
 
 int main() {
+    //由于没有控制翻转，读出来之后左上角是(0,0)
     unsigned char *Edata = stbi_load("./GGX_E_MC_LUT.png", &resolution, &resolution, &channel, 3);
     if (Edata == NULL) 
     {
@@ -130,7 +131,6 @@ int main() {
 
             Eavg = Vec3f(0.0);
 		}
-
 		stbi_flip_vertically_on_write(true);
 		stbi_write_png("GGX_Eavg_MC_LUT.png", resolution, resolution, channel, data, 0);
 	}
